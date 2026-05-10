@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+  createdAt    DateTime  @default(now())
+  bookings     Booking[]
+}
+
+model Event {
+  id             Int            @id @default(autoincrement())
+  title          String
+  description    String
+  venue          String
+  date           DateTime
+  posterUrl      String?
+  createdAt      DateTime       @default(now())
+  seatCategories SeatCategory[]
+  bookings       Booking[]
+}
+
+model SeatCategory {
+  id             Int       @id @default(autoincrement())
+  eventId        Int
+  name           String
+  price          Float
+  totalSeats     Int
+  availableSeats Int
+  event          Event     @relation(fields: [eventId], references: [id])
+  bookings       Booking[]
+}
+
+model Booking {
+  id             Int           @id @default(autoincrement())
+  userId         Int
+  eventId        Int
+  seatCategoryId Int
+  quantity       Int
+  status         BookingStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+  user           User          @relation(fields: [userId], references: [id])
+  event          Event         @relation(fields: [eventId], references: [id])
+  seatCategory   SeatCategory  @relation(fields: [seatCategoryId], references: [id])
+  payment        Payment?
+  tickets        Ticket[]
+}
+
+model Payment {
+  id                    Int           @id @default(autoincrement())
+  bookingId             Int           @unique
+  stripePaymentIntentId String        @unique
+  amount                Float
+  status                PaymentStatus @default(PENDING)
+  createdAt             DateTime      @default(now())
+  booking               Booking       @relation(fields: [bookingId], references: [id])
+}
+
+model Ticket {
+  id        Int      @id @default(autoincrement())
+  bookingId Int
+  qrCode    String
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+}
