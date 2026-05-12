@@ -1,227 +1,156 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import api from '../lib/api'
-import toast from 'react-hot-toast'
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../lib/api';
+import { Badge } from '../components/ui/ui';
+import { Calendar, Users, Ticket, TrendingUp, ArrowRight } from 'lucide-react';
 
-const emptyForm = {
-  title: '', description: '', venue: '', date: '', posterUrl: '',
-  seatCategories: [{ name: 'General', price: '', totalSeats: '' }]
-}
+const StatCard = ({ icon: Icon, iconBg, iconColor, value, label, delta }) => (
+  <div className="bg-[#111118] rounded-2xl p-5 border border-white/5">
+    <div className="flex items-start justify-between">
+      <div>
+        <p className="text-3xl font-bold text-white mt-3">{value}</p>
+        <p className="text-sm text-gray-500 mt-1">{label}</p>
+        {delta && <p className="text-xs text-emerald-400 mt-2">{delta}</p>}
+      </div>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}>
+        <Icon className={`w-5 h-5 ${iconColor}`} />
+      </div>
+    </div>
+  </div>
+);
 
-export default function AdminEvents() {
-  const [events, setEvents] = useState([])
-  const [form, setForm] = useState(emptyForm)
-  const [loading, setLoading] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [showForm, setShowForm] = useState(false)
+export default function AdminDashboard() {
+  const [stats, setStats] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const fetchEvents = () => {
-    api.get('/api/events')
-      .then(res => setEvents(res.data))
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => { fetchEvents() }, [])
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
-    try {
-      await api.post('/api/events', {
-        ...form,
-        seatCategories: form.seatCategories.map(cat => ({
-          ...cat,
-          price: Number(cat.price),
-          totalSeats: Number(cat.totalSeats)
-        }))
+  useEffect(() => {
+    Promise.all([api.get('/admin/stats'), api.get('/admin/bookings')])
+      .then(([statsRes, bookingsRes]) => {
+        setStats(statsRes.data);
+        setBookings(bookingsRes.data);
       })
-      toast.success('Event created!')
-      setForm(emptyForm)
-      setShowForm(false)
-      fetchEvents()
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to create event')
-    } finally {
-      setSubmitting(false)
-    }
-  }
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this event?')) return
-    try {
-      await api.delete(`/api/events/${id}`)
-      toast.success('Event deleted')
-      fetchEvents()
-    } catch (err) {
-      toast.error('Failed to delete event')
-    }
-  }
-
-  const updateCategory = (index, field, value) => {
-    const updated = [...form.seatCategories]
-    updated[index] = { ...updated[index], [field]: value }
-    setForm({ ...form, seatCategories: updated })
-  }
-
-  const addCategory = () => {
-    setForm({ ...form, seatCategories: [...form.seatCategories, { name: '', price: '', totalSeats: '' }] })
-  }
-
-  const removeCategory = (index) => {
-    setForm({ ...form, seatCategories: form.seatCategories.filter((_, i) => i !== index) })
-  }
-
-  if (loading) return <div className="text-center text-gray-400 mt-20">Loading...</div>
+  const formatDate = (d) =>
+    new Date(d).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <Link to="/admin" className="text-gray-400 hover:text-white transition">← Dashboard</Link>
-          <h1 className="text-3xl font-bold">Manage Events</h1>
+    <div className="max-w-6xl mx-auto px-4 py-10">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard</h1>
+          <p className="text-gray-500 mt-1">Welcome back, Admin.</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg text-sm font-medium transition"
+        <Link
+          to="/admin/events"
+          className="flex items-center gap-2 border border-violet-500/40 text-violet-400 hover:border-violet-500 hover:bg-violet-500/10 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
         >
-          {showForm ? 'Cancel' : '+ New Event'}
-        </button>
+          Manage Events <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
 
-      {showForm && (
-        <div className="bg-gray-900 rounded-2xl p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Create Event</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Title</label>
-                <input
-                  value={form.title}
-                  onChange={e => setForm({ ...form, title: e.target.value })}
-                  className="w-full bg-gray-800 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-violet-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Venue</label>
-                <input
-                  value={form.venue}
-                  onChange={e => setForm({ ...form, venue: e.target.value })}
-                  className="w-full bg-gray-800 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-violet-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Date & Time</label>
-                <input
-                  type="datetime-local"
-                  value={form.date}
-                  onChange={e => setForm({ ...form, date: e.target.value })}
-                  className="w-full bg-gray-800 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-violet-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-400 mb-1">Poster URL (optional)</label>
-                <input
-                  value={form.posterUrl}
-                  onChange={e => setForm({ ...form, posterUrl: e.target.value })}
-                  className="w-full bg-gray-800 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-400 mb-1">Description</label>
-              <textarea
-                value={form.description}
-                onChange={e => setForm({ ...form, description: e.target.value })}
-                rows={3}
-                className="w-full bg-gray-800 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-violet-500"
-                required
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm text-gray-400">Seat Categories</label>
-                <button type="button" onClick={addCategory} className="text-violet-400 text-sm hover:text-violet-300">+ Add Category</button>
-              </div>
-              <div className="space-y-2">
-                {form.seatCategories.map((cat, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <input
-                      placeholder="Name"
-                      value={cat.name}
-                      onChange={e => updateCategory(i, 'name', e.target.value)}
-                      className="flex-1 bg-gray-800 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-violet-500"
-                      required
-                    />
-                    <input
-                      placeholder="Price (LKR)"
-                      type="number"
-                      value={cat.price}
-                      onChange={e => updateCategory(i, 'price', e.target.value)}
-                      className="w-32 bg-gray-800 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-violet-500"
-                      required
-                    />
-                    <input
-                      placeholder="Seats"
-                      type="number"
-                      value={cat.totalSeats}
-                      onChange={e => updateCategory(i, 'totalSeats', e.target.value)}
-                      className="w-24 bg-gray-800 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-violet-500"
-                      required
-                    />
-                    {form.seatCategories.length > 1 && (
-                      <button type="button" onClick={() => removeCategory(i)} className="text-red-400 hover:text-red-300 px-2">✕</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 px-6 py-2 rounded-lg font-medium transition"
-            >
-              {submitting ? 'Creating...' : 'Create Event'}
-            </button>
-          </form>
+      {/* Stats */}
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-pulse">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-[#111118] rounded-2xl h-32 border border-white/5" />
+          ))}
         </div>
-      )}
+      ) : stats ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <StatCard
+            icon={Calendar}
+            iconBg="bg-violet-500/10"
+            iconColor="text-violet-400"
+            value={stats.totalEvents ?? 0}
+            label="Total Events"
+            delta="↑ 12% this month"
+          />
+          <StatCard
+            icon={Users}
+            iconBg="bg-blue-500/10"
+            iconColor="text-blue-400"
+            value={stats.totalUsers ?? 0}
+            label="Registered Users"
+            delta="↑ 8% this month"
+          />
+          <StatCard
+            icon={Ticket}
+            iconBg="bg-fuchsia-500/10"
+            iconColor="text-fuchsia-400"
+            value={stats.totalBookings ?? 0}
+            label="Total Bookings"
+            delta="↑ 23% this month"
+          />
+          <StatCard
+            icon={TrendingUp}
+            iconBg="bg-emerald-500/10"
+            iconColor="text-emerald-400"
+            value={`LKR ${(stats.totalRevenue ?? 0).toLocaleString()}`}
+            label="Total Revenue"
+            delta="↑ 18% this month"
+          />
+        </div>
+      ) : null}
 
-      <div className="bg-gray-900 rounded-2xl p-6">
-        <h2 className="text-xl font-semibold mb-4">All Events</h2>
-        {!events.length ? (
-          <p className="text-gray-400 text-sm">No events yet</p>
-        ) : (
-          <div className="space-y-3">
-            {events.map(event => (
-              <div key={event.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl">
-                <div>
-                  <p className="font-medium">{event.title}</p>
-                  <p className="text-gray-400 text-sm">{event.venue} — {new Date(event.date).toLocaleDateString()}</p>
-                  <div className="flex gap-2 mt-1">
-                    {event.seatCategories.map(cat => (
-                      <span key={cat.id} className="text-xs text-gray-500">
-                        {cat.name}: {cat.availableSeats}/{cat.totalSeats} left
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDelete(event.id)}
-                  className="text-red-400 hover:text-red-300 text-sm px-3 py-1 rounded-lg hover:bg-red-400/10 transition"
-                >
-                  Delete
-                </button>
-              </div>
+      {/* Bookings table */}
+      <div className="bg-[#111118] rounded-2xl border border-white/5 overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-white">Recent Bookings</h2>
+          <span className="text-xs text-gray-500">{bookings.length} total</span>
+        </div>
+
+        {loading ? (
+          <div className="animate-pulse p-5 flex flex-col gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-10 bg-white/3 rounded-xl" />
             ))}
+          </div>
+        ) : bookings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Ticket className="w-10 h-10 text-gray-700 mb-3" />
+            <p className="text-gray-500 text-sm">No bookings yet</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-white/3">
+                  {['Booking ID', 'Event', 'User', 'Category', 'Qty', 'Amount', 'Date', 'Status'].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs text-gray-500 uppercase tracking-wider font-medium">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bookings.map((b) => (
+                  <tr key={b.id} className="border-t border-white/5 hover:bg-white/2 transition-colors">
+                    <td className="px-4 py-3 text-xs text-gray-500 font-mono">#{b.id?.slice(0, 8)}</td>
+                    <td className="px-4 py-3 text-sm text-white font-medium max-w-[160px] truncate">
+                      {b.event?.name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-400">{b.user?.email}</td>
+                    <td className="px-4 py-3 text-sm text-gray-400">{b.seatCategory?.name}</td>
+                    <td className="px-4 py-3 text-sm text-gray-400">{b.quantity}</td>
+                    <td className="px-4 py-3 text-sm text-violet-400 font-medium">
+                      LKR {(b.seatCategory?.price * b.quantity)?.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">{formatDate(b.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      <Badge status={b.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }
